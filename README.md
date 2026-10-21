@@ -1,9 +1,9 @@
-# DocuMind
+# DocuMind-RAG
 
 **Retrieval-augmented question answering over published papers.**
 Ask a question about a PDF and get an answer grounded in the paper's own text, together with the passages it was based on.
 
-DoccuMnd is an end-to-end RAG pipeline built with LangChain, FAISS, FastAPI and Streamlit.
+DoccuMind-RAG is an end-to-end RAG pipeline built with LangChain, FAISS, FastAPI and Streamlit.
 
 ---
 
@@ -12,7 +12,8 @@ DoccuMnd is an end-to-end RAG pipeline built with LangChain, FAISS, FastAPI and 
 - **PDF ingestion**: extracts text from papers with PyMuPDF
 - **Chunking and embedding**: splits text into passages and embeds them with a HuggingFace sentence-transformer
 - **Persistent vector index**: FAISS index is built once, saved to disk and loaded when the API starts
-- **Reranking**: retrieves 20 candidate passages, then reorders them with the `BAAI/bge-reranker-base` cross-encoder and keeps the best 4
+- **Hybrid search**: combines semantic (vector) search with BM25 keyword search, merged with reciprocal rank fusion, so both meaning and exact terms are matched
+- **Reranking**: the 20 best hybrid candidates are reordered with the `BAAI/bge-reranker-base` cross-encoder, and the best 4 are kept
 - **Grounded answers**: the LLM is instructed to answer only from retrieved context and to say when the answer is not in the document
 - **Source passages returned**: every response includes the chunks used to produce the answer
 - **REST API**: FastAPI backend with interactive docs at `/docs`
@@ -32,7 +33,7 @@ flowchart LR
     subgraph Serving [Online: per question]
         Q[User question] --> UI[Streamlit UI]
         UI -->|POST /query| API[FastAPI]
-        API --> V[vectorstore.py<br/>similarity search]
+        API --> V[Hybrid search<br/>FAISS + BM25]
         E --> V
         V -->|20 candidates| R[Reranker<br/>bge-reranker-base]
         R -->|top 4 chunks| L[LLM]
@@ -49,6 +50,7 @@ flowchart LR
 | Orchestration | LangChain |
 | Embeddings | HuggingFace sentence-transformers |
 | Vector store | FAISS (local, persisted to disk) |
+| Keyword search | BM25 (`rank-bm25`) |
 | Reranker | `BAAI/bge-reranker-base` (cross-encoder) |
 | LLM | OpenAI (`gpt-4o-mini` by default, replaceable) |
 | Backend | FastAPI + Uvicorn |
@@ -89,7 +91,7 @@ ragpro/
 ### 2. Install
 
 ```bash
-git clone https://github.com/<mariamesaid>/DocuMind-RAG.git
+git clone https://github.com/<your-username>/ScholarRAG.git
 cd DocuMind-RAG
 
 python -m venv .venv
@@ -98,7 +100,7 @@ python -m venv .venv
 
 pip install fastapi uvicorn python-dotenv pydantic \
             langchain-core langchain-community langchain-huggingface langchain-openai \
-            faiss-cpu pymupdf sentence-transformers streamlit requests
+            faiss-cpu rank-bm25 pymupdf sentence-transformers streamlit requests
 ```
 
 ### 3. Configure
@@ -201,7 +203,6 @@ To use a local model instead of OpenAI, replace the `ChatOpenAI(...)` line in `m
 
 - [ ] Page-level citations in the sources
 - [ ] Evaluation set and metrics (retrieval hit rate, faithfulness)
-- [ ] Hybrid (BM25 + vector) retrieval
 - [ ] Conversation memory
 - [ ] Multi-document support with metadata filters
 - [ ] Docker packaging and cloud deployment
