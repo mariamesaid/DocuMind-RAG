@@ -90,7 +90,7 @@ ragpro/
 
 ```bash
 git clone https://github.com/<mariamesaid>/DocuMind-RAG.git
-cd ScholarRAG
+cd DocuMind-RAG
 
 python -m venv .venv
 .venv\Scripts\activate          # Windows
